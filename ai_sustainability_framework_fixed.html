@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Global Framework for Sustainable AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f9fafb}
+input,select,textarea,button{font-family:inherit}
+table{border-collapse:collapse}
+ul,ol{padding-left:20px}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:#f1f1f1}
+::-webkit-scrollbar-thumb{background:#ccc;border-radius:3px}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<!-- React from CDN (NO RECHARTS NEEDED) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+
+<script>
+// ─── ALL APP CODE (pure JS, no JSX, no external chart library needed) ────────
+const {createElement:h,useState,useEffect,Fragment}=React;
+
+const SG="'Space Grotesk',sans-serif";
+const C={navy:"#0a1628",navyL:"#162d56",teal:"#0d9488",tealL:"#14b8a6",
+         green:"#16a34a",greenL:"#22c55e",gold:"#ca8a04",red:"#dc2626",
+         orange:"#ea580c",gray50:"#f9fafb",gray100:"#f3f4f6",gray200:"#e5e7eb",
+         gray400:"#9ca3af",gray500:"#6b7280",gray600:"#4b5563",gray700:"#374151",
+         gray900:"#111827",white:"#ffffff"};
+
+const sc2col=s=>s>=76?C.green:s>=61?"#65a30d":s>=41?C.gold:s>=21?C.orange:C.red;
+const sc2bg=s=>s>=76?"#f0fdf4":s>=55?"#f7fee7":s>=35?"#fefce8":"#fff7ed";
+const getTier=s=>s>=91?{l:"Tier 3 — Best Practice (Verified)",b:"T3",c:C.green}
+  :s>=76?{l:"Tier 3 — Approaching Best Practice",b:"T3~",c:C.greenL}
+  :s>=61?{l:"Tier 2 — Good Practice",b:"T2",c:"#65a30d"}
+  :s>=41?{l:"Tier 1 — Baseline Compliance",b:"T1",c:C.gold}
+  :s>=21?{l:"Tier 1 — Partial",b:"T1~",c:C.orange}
+  :{l:"Below Baseline",b:"–",c:C.red};
+
+// ─── STATIC DATA ──────────────────────────────────────────────────────────────
+const STATS=[
+  {val:"415 TWh",label:"Global data center electricity 2024",sub:"~Indonesia's entire consumption",icon:"⚡"},
+  {val:"945 TWh",label:"IEA projection by 2030",sub:"More than double current demand",icon:"📈"},
+  {val:"180 Mt",label:"Annual CO₂ from data centers",sub:"Indirect emissions from electricity",icon:"💨"},
+  {val:"662%",label:"Real emissions vs. reported",sub:"Guardian analysis of Big Tech",icon:"📊"},
+  {val:"80–90%",label:"AI compute used for inference",sub:"Training is only part of the story",icon:"🔄"},
+  {val:"1,125M m³",label:"Projected US AI water footprint",sub:"Annual by 2030 (Nature Sustainability)",icon:"💧"}
+];
+
+const PHASES_D=[
+  {id:"extraction",icon:"⛏️",label:"Raw Material Extraction",w:"8%",summary:"Cobalt, lithium, rare earth mining — supply chain due diligence, conflict mineral certification, upstream Scope 3 tracking."},
+  {id:"manufacturing",icon:"🔧",label:"Hardware Manufacturing",w:"10%",summary:"GPU/TPU fabrication — embodied carbon, PFAS chemical waste, semiconductor water use, RoHS and WEEE compliance."},
+  {id:"storage",icon:"💾",label:"Data Collection & Storage",w:"7%",summary:"Data minimization as a sustainability practice — storage energy, redundancy reduction, cold data migration."},
+  {id:"training",icon:"🧠",label:"Model Training",w:"22%",summary:"Most energy-intensive phase — Training Run Environmental Card, 24/7 CFE matching, advanced cooling infrastructure."},
+  {id:"inference",icon:"⚡",label:"Deployment & Inference",w:"25%",summary:"The invisible majority — Cumulative Lifecycle Emissions Accounting (CLEA), carbon-aware routing, inference efficiency targets."},
+  {id:"maintenance",icon:"🔄",label:"Maintenance & Updates",w:"8%",summary:"Efficient Update Preference — fine-tuning vs. full retraining, model deprecation policies, version governance."},
+  {id:"eol",icon:"♻️",label:"Hardware End-of-Life",w:"10%",summary:"Hardware Circularity Passport — take-back programs, Basel Convention compliance, certified refurbishment pathways."},
+  {id:"governance",icon:"📋",label:"Governance & Transparency",w:"10%",summary:"Cross-cutting dimension — third-party verified reporting, GHG Protocol alignment, board-level sustainability oversight."}
+];
+
+const REGS=[
+  {region:"🇪🇺 European Union",items:["EU AI Act (2024/1689)","Corporate Sustainability Reporting Directive","Energy Efficiency Directive 2023/1791","Corporate Sustainability Due Diligence Directive","EU Taxonomy Regulation","Ecodesign for Sustainable Products (ESPR)"]},
+  {region:"🌐 International",items:["Paris Agreement / UNFCCC","GHG Protocol (WRI/WBCSD)","IFRS S1 / S2 (ISSB Standards)","ISO 14001, 50001, 42001","ISSA 5000 Assurance Standard","Basel Convention / WEEE"]},
+  {region:"🌎 Americas",items:["California SB 253 & SB 261","Brazil CVM Resolutions 217–219","Brazil Sustainable Taxonomy (TSB)","Brazil AI Plan (PBIA 2024–2028)","Mexico Sustainable Taxonomy","Escazú Agreement (24 countries)"]},
+  {region:"🌏 Asia-Pacific",items:["Singapore Green DC Roadmap","China GEC / East Data West","South Korea Framework Act on AI","Japan FSA Sustainability Standard","Australia ISSB-aligned Disclosures","ASEAN Digital Economy Framework"]},
+  {region:"🌍 Africa",items:["African Union Agenda 2063","AU Climate Change Strategy 2022–2032","South Africa Climate Change Act","Kenya Climate Change Act","Nigeria Climate Change Act","Morocco NDC (CCPI #9 globally)"]}
+];
+
+// ─── SCORER DATA ──────────────────────────────────────────────────────────────
+const PHASES=[
+  {id:"extraction",label:"Raw Material Extraction",short:"Materials",weight:0.08,icon:"⛏️"},
+  {id:"manufacturing",label:"Hardware Manufacturing",short:"Hardware Mfg",weight:0.10,icon:"🔧"},
+  {id:"storage",label:"Data Collection & Storage",short:"Data Storage",weight:0.07,icon:"💾"},
+  {id:"training",label:"Model Training",short:"Training",weight:0.22,icon:"🧠"},
+  {id:"inference",label:"Deployment & Inference",short:"Inference",weight:0.25,icon:"⚡"},
+  {id:"maintenance",label:"Maintenance & Updates",short:"Maintenance",weight:0.08,icon:"🔄"},
+  {id:"eol",label:"Hardware End-of-Life",short:"End-of-Life",weight:0.10,icon:"♻️"},
+  {id:"governance",label:"Governance & Transparency",short:"Governance",weight:0.10,icon:"📋"}
+];
+const PILLARS=[
+  {id:"measure",label:"Measure",weight:0.25,color:"#3b82f6"},
+  {id:"disclose",label:"Disclose",weight:0.30,color:"#8b5cf6"},
+  {id:"reduce",label:"Reduce",weight:0.45,color:C.green}
+];
+const SOPTS=[
+  {value:10,label:"No evidence / Not started",desc:"No activity; data withheld or entirely absent"},
+  {value:30,label:"Early stage (Tier 1 partial)",desc:"Some baseline activity but incomplete"},
+  {value:50,label:"Baseline compliance (Tier 1)",desc:"All minimum requirements met"},
+  {value:68,label:"Good practice (Tier 2)",desc:"Going beyond compliance with demonstrable progress"},
+  {value:88,label:"Best practice (Tier 3)",desc:"Verified, leading practice fully implemented"}
+];
+const Qs={
+  extraction:{
+    measure:{q:"How thoroughly do you track Scope 3 upstream emissions from AI hardware mineral sourcing?",g:"Upstream emissions per unit, water contamination risk, conflict mineral flagging"},
+    disclose:{q:"Do you publicly report on supply chain due diligence, supplier audits, and conflict mineral sourcing?",g:"Due diligence reports, supplier audit results, TNFD disclosures"},
+    reduce:{q:"How rigorously do you enforce environmental standards across your hardware supply chain?",g:"Supplier exclusion policies, mineral certification schemes, full supply chain traceability"}
+  },
+  manufacturing:{
+    measure:{q:"Do you track embodied carbon per GPU/TPU, semiconductor water use, and chemical waste?",g:"Product-level LCA, PFAS tracking, water use per fabrication process"},
+    disclose:{q:"Do you publish Scope 3 hardware emissions, RoHS/WEEE compliance, and embodied carbon data?",g:"Manufacturer Scope 1/2/3 disclosure, ecodesign scorecards"},
+    reduce:{q:"Do your hardware procurement policies include minimum lifespan standards and modularity requirements?",g:"Right-to-repair provisions, component upgrade pathways, SBTi-aligned supply chain targets"}
+  },
+  storage:{
+    measure:{q:"Do you measure energy per terabyte stored, PUE/WUE of storage infrastructure, and data redundancy ratios?",g:"Storage Carbon Intensity (SCI), Data Efficiency Ratio (DER)"},
+    disclose:{q:"Do you include storage energy use in disclosures and publish a data minimization policy?",g:"Storage energy as a line item in reporting, data retention policies"},
+    reduce:{q:"Do you practice data minimization, cold storage migration, and deduplication as sustainability measures?",g:"Data governance policies, archival migration programs, storage energy reduction targets"}
+  },
+  training:{
+    measure:{q:"Do you measure total energy per training run, grid carbon intensity, water consumed, and compute efficiency?",g:"Per-run energy logging, real-time grid carbon intensity, WUE for training facilities"},
+    disclose:{q:"Do you publish training run energy and emissions data per model release, including a Training Run Environmental Card?",g:"Per-model disclosure, third-party verified emissions, cumulative lifecycle emissions projection"},
+    reduce:{q:"What level of carbon-free energy sourcing have you achieved for training, and what cooling technology do you use?",g:"Renewable % for training runs, 24/7 CFE matching, WUE targets, closed-loop or immersion cooling"}
+  },
+  inference:{
+    measure:{q:"Do you measure energy per inference query by task type and maintain Cumulative Lifecycle Emissions Accounting (CLEA)?",g:"Joules per query by model/task, rolling CLEA records, WUE of inference infrastructure"},
+    disclose:{q:"Do you publish inference energy data and maintain publicly accessible Cumulative Lifecycle Emissions Accounting?",g:"Quarterly per-query carbon intensity updates, annual inference energy disclosure"},
+    reduce:{q:"Do you use carbon-intensity-aware workload routing, model compression/quantization, and inference efficiency targets?",g:"Geographic workload routing to low-carbon grids, distillation and quantization practices"}
+  },
+  maintenance:{
+    measure:{q:"Do you track energy consumption per retraining, fine-tuning run, and version update cycle?",g:"Per-update energy logging, retraining vs. fine-tuning energy comparison"},
+    disclose:{q:"Is maintenance and update energy included as a line item in your annual lifecycle emissions reporting?",g:"Update frequency and associated compute costs disclosed"},
+    reduce:{q:"Do you have policies preferring fine-tuning over full retraining and model deprecation schedules?",g:"Efficient Update Preference policy, model deprecation timelines, version proliferation governance"}
+  },
+  eol:{
+    measure:{q:"Do you track hardware lifespan, annual e-waste generated, recycling recovery rates, and hazardous disposal compliance?",g:"Hardware asset register with lifecycle tracking, e-waste tonnage reporting, recovery rates"},
+    disclose:{q:"Do you publish WEEE compliance reporting and e-waste destination audits confirming no export to non-certified countries?",g:"Annual e-waste reporting, third-party destination audits, Hardware Circularity Passport"},
+    reduce:{q:"Do you operate take-back programs, enforce Basel Convention-compliant disposal, and run refurbishment programs?",g:"Vendor take-back program coverage, certified recycling contracts, hardware donation/reuse programs"}
+  },
+  governance:{
+    measure:{q:"Do you have standardized, auditable sustainability metrics for AI operations aligned with the GHG Protocol?",g:"Internal carbon accounting systems, AI-specific metric definitions, measurement frequency"},
+    disclose:{q:"Is your AI sustainability reporting third-party verified (e.g., ISSA 5000) and aligned with GHG Protocol and IFRS S2?",g:"External assurance provider, public sustainability report, IFRS S2/CSRD alignment"},
+    reduce:{q:"Do you have a dedicated sustainability function, board-level oversight, and binding improvement targets?",g:"Chief Sustainability Officer with AI mandate, board sustainability committee, published reduction targets"}
+  }
+};
+const ACTS={
+  extraction_measure:"Implement Scope 3 Category 1 tracking for all AI hardware mineral sourcing using GHG Protocol methodology.",
+  extraction_disclose:"Publish an annual supply chain due diligence report aligned with CSDDD requirements.",
+  extraction_reduce:"Establish a supplier code of conduct with environmental exclusion criteria and begin mapping supply chains to point of mineral extraction.",
+  manufacturing_measure:"Commission product-level lifecycle assessments (LCAs) for primary hardware SKUs to quantify embodied carbon per unit.",
+  manufacturing_disclose:"Publish Scope 3 hardware emissions and RoHS/WEEE compliance declarations in your next sustainability report.",
+  manufacturing_reduce:"Revise hardware procurement policy to include minimum lifespan standards and preference for modular, repairable designs.",
+  storage_measure:"Instrument storage infrastructure with energy metering to produce kWh/TB and PUE/WUE metrics.",
+  storage_disclose:"Include storage energy consumption as a line item in operational disclosures and publish a data minimization policy.",
+  storage_reduce:"Audit datasets for redundancy; implement cold storage migration for inactive data; set data retention limits.",
+  training_measure:"Implement per-training-run energy logging with grid carbon intensity tracking and record water consumption.",
+  training_disclose:"Adopt the Training Run Environmental Card format for all model releases and publish energy/emissions data per model.",
+  training_reduce:"Source at least 80% of training energy from renewables and develop a roadmap to 24/7 carbon-free energy matching.",
+  inference_measure:"Instrument inference infrastructure to produce per-query energy data disaggregated by model and task type.",
+  inference_disclose:"Begin publishing inference energy in sustainability reporting and establish Cumulative Lifecycle Emissions Accounting (CLEA).",
+  inference_reduce:"Implement carbon-intensity-aware workload routing; adopt model quantization; set year-on-year efficiency targets.",
+  maintenance_measure:"Log energy consumption per retraining and fine-tuning run; track retraining frequency and compute per update cycle.",
+  maintenance_disclose:"Include maintenance and update energy as a line item in annual lifecycle emissions reporting.",
+  maintenance_reduce:"Adopt an Efficient Update Preference policy; publish a model deprecation schedule; implement version governance.",
+  eol_measure:"Deploy a hardware asset tracking system recording lifespan, e-waste tonnage, recycling recovery rates, and destinations.",
+  eol_disclose:"Publish an annual WEEE compliance report; commission a third-party e-waste destination audit; pilot the Hardware Circularity Passport.",
+  eol_reduce:"Launch a vendor take-back program for all AI hardware; establish certified recycling contracts; create a hardware reuse program.",
+  governance_measure:"Establish standardized AI sustainability metric definitions aligned with the GHG Protocol; implement quarterly measurement.",
+  governance_disclose:"Engage an accredited assurance provider for third-party verification under ISSA 5000.",
+  governance_reduce:"Appoint a Chief Sustainability Officer with AI mandate; establish board-level oversight; publish binding reduction targets."
+};
+
+const calcPs=ps=>Math.round((ps.measure||15)*0.25+(ps.disclose||15)*0.30+(ps.reduce||15)*0.45);
+const calcComp=sc=>Math.round(PHASES.reduce((s,ph)=>s+calcPs(sc[ph.id]||{})*ph.weight,0));
+const getRecs=sc=>{
+  const r=[];
+  PHASES.forEach(ph=>{
+    const ps=sc[ph.id]||{};
+    PILLARS.forEach(pi=>{
+      const s=ps[pi.id]||15;
+      if(s<50)r.push({phase:ph.label,short:ph.short,pillar:pi.label,score:s,priority:s<30?"Critical":"High",action:ACTS[ph.id+"_"+pi.id]||"Review and strengthen this area."});
+    });
+  });
+  return r.sort((a,b)=>a.score-b.score).slice(0,5);
+};
+
+const OCOLS=["#3b82f6","#8b5cf6","#f59e0b"];
+
+// ─── HELPER: createElement shorthand ─────────────────────────────────────────
+function el(type,props,...children){
+  return h(type,props,...children.flat());
+}
+
+// ─── SCORER GAUGE (CSS-based, no charts needed) ──────────────────────────────
+function ScoreGauge({score,size}){
+  size=size||100;
+  const t=getTier(score),r=size*0.37,cx=size/2,cy=size/2,ci=2*Math.PI*r;
+  return el("div",{style:{width:size,height:size,position:"relative",display:"inline-block",flexShrink:0}},
+    el("svg",{width:size,height:size},
+      el("circle",{cx,cy,r,fill:"none",stroke:C.gray200,strokeWidth:size*0.1}),
+      el("circle",{cx,cy,r,fill:"none",stroke:t.c,strokeWidth:size*0.1,
+        strokeDasharray:`${ci*score/100} ${ci*(1-score/100)}`,
+        strokeDashoffset:ci*0.25,strokeLinecap:"round"})
+    ),
+    el("div",{style:{position:"absolute",inset:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}},
+      el("span",{style:{fontSize:size*0.24,fontWeight:800,color:t.c,lineHeight:1,fontFamily:SG}},score),
+      el("span",{style:{fontSize:size*0.09,color:C.gray400,fontWeight:600}},"/100")
+    )
+  );
+}
+
+// ─── SIMPLE BAR CHART (CSS-based) ─────────────────────────────────────────────
+function SimpleBarChart({data,height}){
+  if(!data||!data.length)return null;
+  height=height||210;
+  const keys=Object.keys(data[0]).filter(k=>k!=="name"&&k!=="subject");
+  const maxVal=Math.max(...data.flatMap(d=>keys.map(k=>d[k]||0)));
+  return el("div",{style:{height,padding:"10px 0"}},
+    el("div",{style:{display:"flex",flexDirection:"column",gap:8,height:"100%",justifyContent:"space-around"}},
+      ...data.map((d,i)=>el("div",{key:i,style:{display:"flex",alignItems:"center",gap:8}},
+        el("div",{style:{fontSize:9,color:C.gray600,width:80,textAlign:"right",flexShrink:0}},d.name||d.subject),
+        el("div",{style:{flex:1,display:"flex",gap:2}},
+          ...keys.map((k,ki)=>el("div",{key:ki,style:{height:20,background:OCOLS[ki]||C.gray400,borderRadius:2,width:((d[k]||0)/maxVal*100)+"%",minWidth:d[k]>0?2:0}}))
+        ),
+        el("div",{style:{fontSize:9,color:C.gray400,width:30}},Math.round(keys.reduce((s,k)=>s+(d[k]||0),0)/keys.length))
+      ))
+    )
+  );
+}
+
+// ─── SCORER TOOL ──────────────────────────────────────────────────────────────
+function ScorerTool(){
+  const[st,setSt]=useState("setup");
+  const[org,setOrg]=useState({name:"",cat:"B",sector:""});
+  const[sc,setSc]=useState({});
+  const[pi,setPi]=useState(0);
+  const[sel,setSel]=useState(null);
+  const ph=PHASES[pi];
+  const ps=sc[ph?ph.id:""]||{};
+  function setSc2(pid,v){setSc(p=>Object.assign({},p,{[ph.id]:Object.assign({},p[ph.id]||{},{[pid]:v})}));}
+  function finish(){
+    const f={};
+    PHASES.forEach(p=>{f[p.id]={};PILLARS.forEach(pi2=>{f[p.id][pi2.id]=(sc[p.id]||{})[pi2.id]||15;});});
+    setSc(f);setSt("dash");
+  }
+  const doneCount=PHASES.filter(p=>PILLARS.every(pi2=>((sc[p.id]||{})[pi2.id]!==undefined))).length;
+  const composite=calcComp(sc);
+  const tier=getTier(composite);
+  const recs=getRecs(sc);
+  const phaseScores=PHASES.map(p=>({subject:p.short,score:calcPs(sc[p.id]||{})}));
+  const barData=PHASES.map(p=>{const ps2=sc[p.id]||{};return{name:p.short,Measure:ps2.measure||15,Disclose:ps2.disclose||15,Reduce:ps2.reduce||15};});
+
+  if(st==="setup")return el("div",{style:{maxWidth:500,margin:"0 auto",padding:"20px 0"}},
+    el("div",{style:{background:C.white,border:`1px solid ${C.gray200}`,borderRadius:14,padding:24}},
+      el("h3",{style:{fontSize:15,fontWeight:800,color:C.gray900,margin:"0 0 16px",fontFamily:SG}},"Start a New Assessment"),
+      el("div",{style:{marginBottom:12}},
+        el("label",{style:{fontSize:11,fontWeight:700,color:C.gray700,display:"block",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.05em"}},"Organization Name *"),
+        el("input",{value:org.name,onChange:e=>setOrg(Object.assign({},org,{name:e.target.value})),placeholder:"Enter organization name",style:{width:"100%",padding:"9px 11px",border:`1px solid ${C.gray200}`,borderRadius:8,fontSize:14,boxSizing:"border-box"}})
+      ),
+      el("div",{style:{marginBottom:12}},
+        el("label",{style:{fontSize:11,fontWeight:700,color:C.gray700,display:"block",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.05em"}},"Framework Category"),
+        el("select",{value:org.cat,onChange:e=>setOrg(Object.assign({},org,{cat:e.target.value})),style:{width:"100%",padding:"9px 11px",border:`1px solid ${C.gray200}`,borderRadius:8,fontSize:13,background:C.white}},
+          el("option",{value:"A"},"Category A — Frontier AI Developer / Hyperscale Operator"),
+          el("option",{value:"B"},"Category B — Enterprise AI Deployer"),
+          el("option",{value:"C"},"Category C — SME / Researcher / Emerging Economy")
+        )
+      ),
+      el("div",{style:{marginBottom:20}},
+        el("label",{style:{fontSize:11,fontWeight:700,color:C.gray700,display:"block",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.05em"}},"Sector (optional)"),
+        el("input",{value:org.sector,onChange:e=>setOrg(Object.assign({},org,{sector:e.target.value})),placeholder:"Technology, Healthcare, Finance...",style:{width:"100%",padding:"9px 11px",border:`1px solid ${C.gray200}`,borderRadius:8,fontSize:14,boxSizing:"border-box"}})
+      ),
+      el("button",{onClick:()=>setSt("assess"),disabled:!org.name.trim(),style:{width:"100%",padding:11,background:org.name.trim()?C.green:C.gray200,color:C.white,border:"none",borderRadius:9,fontSize:14,fontWeight:700,cursor:org.name.trim()?"pointer":"not-allowed",fontFamily:SG}},"Begin Assessment →")
+    )
+  );
+
+  if(st==="assess")return el("div",{style:{maxWidth:660,margin:"0 auto",padding:"20px 0"}},
+    el("div",{style:{display:"flex",alignItems:"center",gap:12,marginBottom:12}},
+      el("div",{style:{flex:1}},
+        el("h3",{style:{fontSize:15,fontWeight:800,color:C.gray900,margin:0,fontFamily:SG}},org.name),
+        el("p",{style:{fontSize:11,color:C.gray400,margin:0}},"Category "+org.cat+" · "+doneCount+"/"+PHASES.length+" phases complete")
+      ),
+      el("button",{onClick:finish,style:{padding:"7px 14px",background:C.green,color:C.white,border:"none",borderRadius:8,fontSize:12,fontWeight:700,cursor:"pointer"}},"View Results →")
+    ),
+    el("div",{style:{height:4,background:C.gray100,borderRadius:3,marginBottom:12,overflow:"hidden"}},
+      el("div",{style:{height:"100%",width:((doneCount/PHASES.length)*100)+"%",background:C.green,borderRadius:3}})
+    ),
+    el("div",{style:{display:"flex",gap:5,overflowX:"auto",paddingBottom:8,marginBottom:16}},
+      ...PHASES.map((p,i)=>{
+        const done=PILLARS.every(pi2=>((sc[p.id]||{})[pi2.id]!==undefined));
+        return el("button",{key:p.id,onClick:()=>setPi(i),style:{padding:"5px 11px",borderRadius:20,border:`2px solid ${i===pi?C.green:done?"#bbf7d0":C.gray200}`,background:i===pi?C.green:done?"#f0fdf4":C.white,color:i===pi?C.white:done?"#15803d":C.gray400,fontSize:11,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}},
+          (done?"✓ ":"")+p.short
+        );
+      })
+    ),
+    el("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:12,padding:"11px 14px",background:C.white,borderRadius:10,border:`1px solid ${C.gray200}`}},
+      el("span",{style:{fontSize:24}},ph.icon),
+      el("div",null,
+        el("h4",{style:{fontSize:14,fontWeight:700,color:C.gray900,margin:0,fontFamily:SG}},ph.label),
+        el("p",{style:{fontSize:11,color:C.gray400,margin:0}},"Weight: "+(ph.weight*100).toFixed(0)+"% of composite score")
+      )
+    ),
+    ...PILLARS.map(p=>{
+      const q=Qs[ph.id]&&Qs[ph.id][p.id];
+      return el("div",{key:p.id,style:{background:C.white,border:`1px solid ${C.gray200}`,borderRadius:10,padding:14,marginBottom:10}},
+        el("span",{style:{background:p.color,color:C.white,fontSize:10,fontWeight:700,padding:"2px 9px",borderRadius:20,display:"inline-block",marginBottom:8}},p.label+" — "+(p.weight*100).toFixed(0)+"% of phase score"),
+        q&&el("p",{style:{fontSize:12,color:C.gray700,fontWeight:500,margin:"0 0 4px",lineHeight:1.55}},q.q),
+        q&&el("p",{style:{fontSize:11,color:C.gray400,fontStyle:"italic",margin:"0 0 10px",lineHeight:1.4}},"Consider: "+q.g),
+        el("div",{style:{display:"flex",flexDirection:"column",gap:5}},
+          ...SOPTS.map(opt=>el("label",{key:opt.value,style:{display:"flex",alignItems:"center",gap:10,padding:"7px 11px",borderRadius:7,border:`2px solid ${ps[p.id]===opt.value?sc2col(opt.value):C.gray200}`,background:ps[p.id]===opt.value?sc2bg(opt.value):C.white,cursor:"pointer"}},
+            el("input",{type:"radio",value:opt.value,checked:ps[p.id]===opt.value,onChange:()=>setSc2(p.id,opt.value),style:{accentColor:sc2col(opt.value)}}),
+            el("div",{style:{flex:1}},
+              el("div",{style:{fontSize:12,fontWeight:600,color:ps[p.id]===opt.value?sc2col(opt.value):C.gray700}},opt.label),
+              el("div",{style:{fontSize:10,color:C.gray500}},opt.desc)
+            ),
+            el("span",{style:{fontSize:13,fontWeight:800,color:sc2col(opt.value),fontFamily:SG}},opt.value)
+          ))
+        )
+      );
+    }),
+    el("div",{style:{display:"flex",gap:9,marginTop:4}},
+      el("button",{onClick:()=>setPi(Math.max(0,pi-1)),disabled:pi===0,style:{padding:"9px 16px",border:`1px solid ${C.gray200}`,borderRadius:8,background:C.white,fontSize:12,cursor:pi===0?"not-allowed":"pointer",color:pi===0?C.gray200:C.gray700,fontWeight:600}},"← Previous"),
+      el("button",{onClick:pi<PHASES.length-1?()=>setPi(pi+1):finish,style:{padding:"9px 16px",background:C.green,color:C.white,border:"none",borderRadius:8,fontSize:12,fontWeight:700,cursor:"pointer",marginLeft:"auto",fontFamily:SG}},pi<PHASES.length-1?"Next Phase →":"Calculate Score →")
+    )
+  );
+
+  // Dashboard with simple CSS charts
+  return el("div",{style:{maxWidth:880,margin:"0 auto",padding:"20px 0"}},
+    el("div",{style:{display:"flex",alignItems:"flex-start",gap:14,marginBottom:18,padding:"18px 20px",background:C.white,borderRadius:16,border:`1px solid ${C.gray200}`}},
+      h(ScoreGauge,{score:composite}),
+      el("div",{style:{flex:1}},
+        el("h2",{style:{fontSize:17,fontWeight:800,color:C.gray900,margin:"0 0 6px",fontFamily:SG}},org.name),
+        el("div",{style:{display:"flex",gap:7,flexWrap:"wrap",marginBottom:7}},
+          el("span",{style:{background:tier.c,color:C.white,fontSize:11,fontWeight:700,padding:"3px 10px",borderRadius:20}},tier.l),
+          el("span",{style:{background:C.gray100,color:C.gray600,fontSize:11,padding:"3px 10px",borderRadius:20}},"Category "+org.cat),
+          org.sector&&el("span",{style:{background:C.gray100,color:C.gray600,fontSize:11,padding:"3px 10px",borderRadius:20}},org.sector)
+        ),
+        el("div",{style:{display:"flex",gap:20}},
+          ...PILLARS.map(p=>{
+            const s=Math.round(PHASES.reduce((sum,ph2)=>sum+((sc[ph2.id]&&sc[ph2.id][p.id])||15)*ph2.weight,0));
+            return el("div",{key:p.id},
+              el("div",{style:{fontSize:9,color:C.gray400,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em"}},p.label),
+              el("div",{style:{fontSize:16,fontWeight:800,color:sc2col(s),fontFamily:SG}},s,el("span",{style:{fontSize:9,color:C.gray400,fontWeight:400}},"/100"))
+            );
+          })
+        )
+      ),
+      el("button",{onClick:()=>{setSt("setup");setSc({});setPi(0);setSel(null);},style:{padding:"6px 13px",border:`1px solid ${C.gray200}`,borderRadius:8,background:C.white,fontSize:11,cursor:"pointer",color:C.gray600,fontWeight:600}},"New Assessment")
+    ),
+    el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}},
+      el("div",{style:{background:C.white,border:`1px solid ${C.gray200}`,borderRadius:14,padding:"16px 12px"}},
+        el("h4",{style:{fontSize:12,fontWeight:700,color:C.gray900,margin:"0 0 12px",fontFamily:SG}},"Performance by Lifecycle Phase"),
+        h(SimpleBarChart,{data:phaseScores,height:210})
+      ),
+      el("div",{style:{background:C.white,border:`1px solid ${C.gray200}`,borderRadius:14,padding:"16px 12px"}},
+        el("h4",{style:{fontSize:12,fontWeight:700,color:C.gray900,margin:"0 0 12px",fontFamily:SG}},"Measure / Disclose / Reduce by Phase"),
+        h(SimpleBarChart,{data:barData,height:210})
+      )
+    ),
+    el("div",{style:{marginBottom:14}},
+      el("h4",{style:{fontSize:12,fontWeight:700,color:C.gray900,margin:"0 0 10px",fontFamily:SG}},"Lifecycle Phase Breakdown — click any phase for detail"),
+      el("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8}},
+        ...PHASES.map(p=>{
+          const ps2=sc[p.id]||{};const s=calcPs(ps2);const t=getTier(s);
+          return el("div",{key:p.id,onClick:()=>setSel(sel===p.id?null:p.id),style:{background:sel===p.id?sc2bg(s):C.white,border:`2px solid ${sel===p.id?t.c:C.gray200}`,borderRadius:10,padding:"10px 12px",cursor:"pointer"}},
+            el("div",{style:{display:"flex",alignItems:"center",gap:5,marginBottom:7}},
+              el("span",{style:{fontSize:16}},p.icon),
+              el("div",{style:{flex:1}},
+                el("div",{style:{fontSize:10,fontWeight:700,color:C.gray900,fontFamily:SG}},p.short),
+                el("div",{style:{fontSize:8,color:C.gray400}},(p.weight*100).toFixed(0)+"% weight")
+              ),
+              el("div",{style:{textAlign:"right"}},
+                el("div",{style:{fontSize:17,fontWeight:800,color:t.c,lineHeight:1,fontFamily:SG}},s),
+                el("div",{style:{fontSize:7,background:t.c,color:C.white,borderRadius:3,padding:"1px 4px",fontWeight:700,textAlign:"center"}},t.b)
+              )
+            ),
+            ...PILLARS.map(pi2=>{
+              const v=(ps2[pi2.id])||15;
+              return el("div",{key:pi2.id,style:{marginBottom:3}},
+                el("div",{style:{display:"flex",justifyContent:"space-between",fontSize:9,color:C.gray400,marginBottom:1}},
+                  el("span",null,pi2.label),el("span",{style:{fontWeight:700,color:sc2col(v)}},v)
+                ),
+                el("div",{style:{height:3,background:C.gray100,borderRadius:2,overflow:"hidden"}},
+                  el("div",{style:{height:"100%",width:v+"%",background:pi2.color,borderRadius:2}})
+                )
+              );
+            })
+          );
+        })
+      )
+    ),
+    sel&&(()=>{
+      const p=PHASES.find(x=>x.id===sel);
+      const ps2=sc[sel]||{};
+      return el("div",{style:{background:C.white,border:`1px solid ${C.gray200}`,borderRadius:14,padding:18,marginBottom:14}},
+        el("div",{style:{display:"flex",alignItems:"center",gap:8,marginBottom:12}},
+          el("span",{style:{fontSize:20}},p.icon),
+          el("h4",{style:{fontSize:14,fontWeight:700,color:C.gray900,margin:0,fontFamily:SG}},p.label+" — Detailed Breakdown")
+        ),
+        el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}},
+          ...PILLARS.map(pi2=>{
+            const v=(ps2[pi2.id])||15;const t=getTier(v);const q=Qs[sel]&&Qs[sel][pi2.id];
+            return el("div",{key:pi2.id,style:{border:`1px solid ${pi2.color}44`,borderRadius:9,padding:13,background:sc2bg(v)}},
+              el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}},
+                el("span",{style:{fontSize:11,fontWeight:700,color:pi2.color}},pi2.label),
+                el("div",null,
+                  el("span",{style:{fontSize:18,fontWeight:800,color:t.c,fontFamily:SG}},v),
+                  el("span",{style:{fontSize:7,background:t.c,color:C.white,borderRadius:3,padding:"1px 5px",marginLeft:4,fontWeight:700}},t.b)
+                )
+              ),
+              q&&el("p",{style:{fontSize:10,color:C.gray600,margin:0,lineHeight:1.5}},q.q)
+            );
+          })
+        )
+      );
+    })(),
+    recs.length>0&&el("div",{style:{background:C.white,border:`1px solid ${C.gray200}`,borderRadius:14,padding:18}},
+      el("h4",{style:{fontSize:12,fontWeight:700,color:C.gray900,margin:"0 0 12px",fontFamily:SG}},"Priority Recommendations"),
+      el("div",{style:{display:"grid",gap:8}},
+        ...recs.map((r,i)=>el("div",{key:i,style:{display:"flex",gap:10,padding:"10px 13px",borderRadius:9,background:r.priority==="Critical"?"#fef2f2":"#fff7ed",border:`1px solid ${r.priority==="Critical"?"#fecaca":"#fed7aa"}`}},
+          el("div",{style:{minWidth:22,height:22,borderRadius:"50%",background:r.priority==="Critical"?C.red:C.orange,color:C.white,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:800,flexShrink:0}},i+1),
+          el("div",{style:{flex:1}},
+            el("div",{style:{display:"flex",gap:4,marginBottom:4,flexWrap:"wrap"}},
+              el("span",{style:{fontSize:9,fontWeight:700,color:r.priority==="Critical"?C.red:C.orange,background:r.priority==="Critical"?"#fee2e2":"#ffedd5",padding:"1px 7px",borderRadius:10}},r.priority),
+              el("span",{style:{fontSize:9,color:C.gray600,background:C.gray100,padding:"1px 7px",borderRadius:10}},r.short),
+              el("span",{style:{fontSize:9,color:C.gray600,background:C.gray100,padding:"1px 7px",borderRadius:10}},r.pillar),
+              el("span",{style:{fontSize:9,fontWeight:700,color:sc2col(r.score),fontFamily:SG}},"Score: "+r.score+"/100")
+            ),
+            el("p",{style:{fontSize:12,color:C.gray700,margin:0,lineHeight:1.55}},r.action)
+          )
+        ))
+      )
+    )
+  );
+}
+
+// ─── PAGES ─────────────────────────────────────────────────────────────────────
+function HomePage({nav}){
+  return el("div",null,
+    el("div",{style:{background:`linear-gradient(160deg,${C.navy} 0%,${C.navyL} 60%,#0d3b2e 100%)`,padding:"72px 24px 80px",textAlign:"center"}},
+      el("h1",{style:{fontSize:46,fontWeight:900,color:C.white,margin:"0 0 20px",fontFamily:SG}},"A Global Framework for Sustainable AI"),
+      el("p",{style:{fontSize:18,color:"rgba(255,255,255,0.7)",maxWidth:600,margin:"0 auto 36px"}},"Synthesizing the world's most effective environmental regulations and applying them to AI's full lifecycle."),
+      el("button",{onClick:()=>nav("tools"),style:{padding:"12px 26px",background:C.tealL,color:C.navy,border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:SG}},"Run an Assessment →")
+    ),
+    el("div",{style:{background:C.navy,padding:"40px 24px"}},
+      el("div",{style:{maxWidth:1100,margin:"0 auto",display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:20}},
+        ...STATS.map((s,i)=>el("div",{key:i,style:{textAlign:"center"}},
+          el("div",{style:{fontSize:28,marginBottom:6}},s.icon),
+          el("div",{style:{fontSize:28,fontWeight:900,color:C.tealL,fontFamily:SG}},s.val),
+          el("div",{style:{fontSize:12,color:"rgba(255,255,255,0.7)",margin:"6px 0"}},s.label),
+          el("div",{style:{fontSize:11,color:"rgba(255,255,255,0.35)"}},s.sub)
+        ))
+      )
+    )
+  );
+}
+
+function AboutPage(){
+  return el("div",{style:{maxWidth:860,margin:"0 auto",padding:"52px 24px"}},
+    el("div",{style:{textAlign:"center",marginBottom:52}},
+      el("h1",{style:{fontSize:36,fontWeight:900,color:C.gray900,margin:"0 0 16px",fontFamily:SG}},"About the Framework"),
+      el("p",{style:{fontSize:16,color:C.gray600,maxWidth:600,margin:"0 auto",lineHeight:1.75}},"A global synthesis of environmental law, applied to the most consequential technology of our era.")
+    ),
+    el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:48}},
+      ...[
+        {icon:"🎯",title:"Purpose",body:"This framework synthesizes the world's most effective environmental regulations and applies their logic, metrics, and compliance structures to AI's full lifecycle."},
+        {icon:"👥",title:"Intended Audience",body:"International policymakers, corporate sustainability officers, data center operators, hardware manufacturers, investors integrating AI into ESG analysis, and consultants advising on AI environmental governance."},
+        {icon:"🌍",title:"Geographic Scope",body:"Truly global — covering regulations across the EU, US, China, Singapore, Japan, South Korea, Australia, Brazil, Mexico, Chile, Morocco, Kenya, South Africa, Ethiopia, and the African Union."},
+        {icon:"📅",title:"Version and Status",body:"Working Draft v0.2, February 2026. Designed as a living document, updated as new regulations are adopted and new evidence emerges."}
+      ].map(c=>el("div",{key:c.title,style:{background:C.white,border:`1px solid ${C.gray200}`,borderRadius:14,padding:22}},
+        el("div",{style:{fontSize:30,marginBottom:12}},c.icon),
+        el("h3",{style:{fontSize:15,fontWeight:700,color:C.gray900,margin:"0 0 9px",fontFamily:SG}},c.title),
+        el("p",{style:{fontSize:13,color:C.gray600,margin:0,lineHeight:1.7}},c.body)
+      ))
+    ),
+    el("h2",{style:{fontSize:24,fontWeight:800,color:C.gray900,margin:"0 0 14px",fontFamily:SG}},"The Differentiated Responsibilities Model"),
+    el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12}},
+      ...[
+        {cat:"Category A",title:"Frontier Developers & Hyperscale Operators",reqs:["24/7 carbon-free energy matching","Full lifecycle water disclosure","Third-party verified emissions (ISSA 5000)","Supply chain due diligence to point of extraction","Hardware Circularity Passports"]},
+        {cat:"Category B",title:"Enterprise AI Deployers",reqs:["Tier 1 compliance immediately","Pathway to Tier 2 within 3 years","Scope 3 AI emissions in sustainability reports","Sustainability criteria in vendor contracts","Model right-sizing assessments"]},
+        {cat:"Category C",title:"SMEs, Researchers & Emerging Economies",reqs:["Tier 1 compliance in the near term","Technical assistance and capacity building","Green financing mechanisms","Leapfrog Incentive Pathway available","Priority for hardware reuse programs"]}
+      ].map(c=>el("div",{key:c.cat,style:{background:C.white,border:`1px solid ${C.gray200}`,borderRadius:12,overflow:"hidden"}},
+        el("div",{style:{background:C.navy,padding:"12px 16px"}},
+          el("div",{style:{fontSize:11,fontWeight:700,color:C.tealL,marginBottom:2,fontFamily:SG}},c.cat),
+          el("div",{style:{fontSize:13,fontWeight:700,color:C.white,lineHeight:1.3,fontFamily:SG}},c.title)
+        ),
+        el("div",{style:{padding:14}},
+          ...c.reqs.map((r,i)=>el("div",{key:i,style:{display:"flex",gap:7,marginBottom:7,fontSize:11,color:C.gray700,lineHeight:1.5}},
+            el("span",{style:{color:C.green,fontWeight:700,flexShrink:0}},"→"),r
+          ))
+        )
+      ))
+    )
+  );
+}
+
+function FrameworkPage(){
+  return el("div",{style:{maxWidth:920,margin:"0 auto",padding:"52px 24px"}},
+    el("div",{style:{textAlign:"center",marginBottom:44}},
+      el("h1",{style:{fontSize:36,fontWeight:900,color:C.gray900,margin:"0 0 16px",fontFamily:SG}},"The Framework"),
+      el("p",{style:{fontSize:16,color:C.gray600,maxWidth:620,margin:"0 auto",lineHeight:1.75}},"A unified, AI-specific sustainability system organized around three pillars, seven lifecycle phases, and a cascading model that synthesizes global regulation into actionable standards.")
+    ),
+    el("h2",{style:{fontSize:24,fontWeight:800,color:C.gray900,margin:"0 0 18px",fontFamily:SG}},"Lifecycle Phase Summaries"),
+    el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:48}},
+      ...PHASES_D.map(p=>el("div",{key:p.id,style:{background:C.white,border:`1px solid ${C.gray200}`,borderRadius:12,padding:18}},
+        el("div",{style:{display:"flex",alignItems:"center",gap:9,marginBottom:10}},
+          el("span",{style:{fontSize:22}},p.icon),
+          el("div",null,
+            el("div",{style:{fontSize:13,fontWeight:700,color:C.gray900,fontFamily:SG}},p.label),
+            el("div",{style:{fontSize:10,color:C.gray400}},"Weight: "+p.w+" of composite score")
+          )
+        ),
+        el("p",{style:{fontSize:12,color:C.gray600,margin:0,lineHeight:1.65}},p.summary)
+      ))
+    )
+  );
+}
+
+function ToolsPage(){
+  const[tool,setTool]=useState("scorer");
+  return el("div",{style:{maxWidth:1000,margin:"0 auto",padding:"40px 24px"}},
+    el("h1",{style:{fontSize:32,fontWeight:900,color:C.gray900,textAlign:"center",margin:"0 0 32px",fontFamily:SG}},"Assessment Tools"),
+    el("div",{style:{display:"flex",gap:12,justifyContent:"center",marginBottom:28}},
+      el("button",{onClick:()=>setTool("scorer"),style:{padding:"10px 20px",background:tool==="scorer"?C.green:C.white,color:tool==="scorer"?C.white:C.gray700,border:`2px solid ${tool==="scorer"?C.green:C.gray200}`,borderRadius:10,fontSize:13,fontWeight:700,cursor:"pointer"}},"📊 Sustainability Scorer")
+    ),
+    h(ScorerTool)
+  );
+}
+
+function ResourcesPage(){
+  const[tab,setTab]=useState("regulations");
+  return el("div",{style:{maxWidth:920,margin:"0 auto",padding:"52px 24px"}},
+    el("div",{style:{textAlign:"center",marginBottom:44}},
+      el("h1",{style:{fontSize:36,fontWeight:900,color:C.gray900,margin:"0 0 14px",fontFamily:SG}},"Resources and References"),
+      el("p",{style:{fontSize:15,color:C.gray600,maxWidth:560,margin:"0 auto",lineHeight:1.75}},"The regulatory landscape, key data sources, and academic literature underpinning the framework.")
+    ),
+    el("div",{style:{display:"flex",gap:5,marginBottom:28,flexWrap:"wrap"}},
+      ...["regulations","data"].map(t=>el("button",{key:t,onClick:()=>setTab(t),style:{padding:"8px 18px",borderRadius:20,border:`2px solid ${tab===t?C.green:C.gray200}`,background:tab===t?C.green:C.white,color:tab===t?C.white:C.gray600,fontSize:12,fontWeight:600,cursor:"pointer"}},t==="regulations"?"🌐 Global Regulations":"📊 Key Data Sources"))
+    ),
+    tab==="regulations"&&el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}},
+      ...REGS.map(r=>el("div",{key:r.region,style:{background:C.white,border:`1px solid ${C.gray200}`,borderRadius:12,padding:20}},
+        el("h3",{style:{fontSize:14,fontWeight:700,color:C.gray900,margin:"0 0 12px",fontFamily:SG}},r.region),
+        ...r.items.map((item,i)=>el("div",{key:i,style:{display:"flex",alignItems:"flex-start",gap:8,marginBottom:7,fontSize:12,color:C.gray700,lineHeight:1.5}},
+          el("span",{style:{width:5,height:5,borderRadius:"50%",background:C.teal,flexShrink:0,marginTop:6}}),item
+        ))
+      ))
+    ),
+    tab==="data"&&el("div",{style:{display:"grid",gap:10}},
+      ...[
+        {src:"International Energy Agency (IEA)",pub:"Energy and AI Report, 2025",data:"415 TWh global data center consumption 2024; 945 TWh projection by 2030; 180 Mt indirect CO₂ annually."},
+        {src:"Nature Sustainability",pub:"Environmental impact and net-zero pathways for AI servers, USA (2025)",data:"US AI server water footprint projections (731–1,125 million m³/year by 2030); 24–44 Mt CO₂ equivalent annually."},
+        {src:"The Guardian / Isabel O'Brien",pub:"Data center emissions probably 662% higher than Big Tech claims (September 2024)",data:"Real emissions from Google, Microsoft, Meta, Apple data centers 2020–2022 approximately 7.62× officially reported."},
+        {src:"Google LLC",pub:"Google 2024 Environmental Report",data:"Google emissions rose 48% since 2019 (14.3 Mt CO₂e in 2023); data center electricity consumption grew 17% in 2023."}
+      ].map(d=>el("div",{key:d.src,style:{background:C.white,border:`1px solid ${C.gray200}`,borderRadius:11,padding:18}},
+        el("div",{style:{display:"flex",gap:10,flexWrap:"wrap",marginBottom:8}},
+          el("span",{style:{fontSize:12,fontWeight:700,color:C.gray900,fontFamily:SG}},d.src),
+          el("span",{style:{fontSize:11,color:C.gray400,fontStyle:"italic"}},d.pub)
+        ),
+        el("p",{style:{fontSize:12,color:C.gray600,margin:0,lineHeight:1.65}},d.data)
+      ))
+    )
+  );
+}
+
+// ─── APP SHELL ────────────────────────────────────────────────────────────────
+function App(){
+  const[page,setPage]=useState("home");
+  const nav=p=>{setPage(p);window.scrollTo(0,0);};
+  return el("div",{style:{minHeight:"100vh",background:C.gray50}},
+    el("nav",{style:{background:C.navy,position:"sticky",top:0,zIndex:100}},
+      el("div",{style:{maxWidth:1100,margin:"0 auto",padding:"0 24px",display:"flex",alignItems:"center",height:58}},
+        el("div",{onClick:()=>nav("home"),style:{fontSize:13,fontWeight:800,color:C.white,cursor:"pointer",marginRight:32,fontFamily:SG}},"🌍 Sustainable AI Framework"),
+        el("div",{style:{display:"flex",gap:20}},
+          ...["home","about","framework","tools","resources"].map(n=>el("button",{key:n,onClick:()=>nav(n),style:{padding:"8px 14px",background:page===n?"rgba(13,148,136,0.15)":"transparent",color:page===n?C.tealL:"rgba(255,255,255,0.65)",border:"none",borderRadius:8,fontSize:13,cursor:"pointer",textTransform:"capitalize"}},n))
+        )
+      )
+    ),
+    el("main",null,
+      page==="home"&&h(HomePage,{nav}),
+      page==="about"&&h(AboutPage),
+      page==="framework"&&h(FrameworkPage),
+      page==="tools"&&h(ToolsPage),
+      page==="resources"&&h(ResourcesPage)
+    ),
+    el("footer",{style:{background:C.navy,padding:"36px 24px",marginTop:60,textAlign:"center"}},
+      el("div",{style:{fontSize:11,color:"rgba(255,255,255,0.25)"}},"Working Draft v0.2 · February 2026 · Not Legal Advice")
+    )
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(h(App));
+</script>
+</body>
+</html>
